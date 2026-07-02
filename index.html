@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake Bill Generator</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family: 'Segoe UI', Roboto, Arial, sans-serif; }
+        body { background: #0f0f1f; min-height:100vh; display:flex; justify-content:center; align-items:center; padding:20px; }
+        .container { max-width:500px; width:100%; background:#1a1a30; border-radius:28px; padding:28px 24px; border:1px solid #2a2a4a; box-shadow:0 20px 40px rgba(0,0,0,0.6); }
+        h1 { text-align:center; color:#ffd700; font-weight:300; font-size:26px; letter-spacing:1px; margin-bottom:4px; }
+        .sub { text-align:center; color:#888; font-size:13px; margin-bottom:22px; }
+        label { display:block; color:#ccc; font-size:14px; font-weight:600; margin:14px 0 4px; }
+        select, input { width:100%; padding:12px 16px; border-radius:16px; border:1px solid #2a2a4a; background:#0f0f1f; color:#fff; font-size:15px; outline:none; transition:0.2s; }
+        select:focus, input:focus { border-color:#ffd700; }
+        select option { background:#1a1a30; }
+        .row { display:flex; gap:12px; }
+        .row > * { flex:1; }
+        button { width:100%; padding:16px; margin-top:20px; border:none; border-radius:40px; background:linear-gradient(135deg, #ffd700, #f7971e); color:#0a0a1a; font-weight:700; font-size:18px; cursor:pointer; transition:0.2s; }
+        button:active { transform:scale(0.96); }
+        .preview { margin-top:24px; background:#0f0f1f; border-radius:18px; padding:18px 16px; border-left:6px solid #ffd700; color:#ddd; font-size:14px; line-height:1.8; word-break:break-all; }
+        .preview .bank { color:#ffd700; font-weight:700; }
+        .preview .amount { color:#ff6b6b; font-weight:700; font-size:20px; }
+        .preview .ref { color:#4ecdc4; font-weight:600; }
+        .copy-btn { display:inline-block; margin-top:12px; padding:8px 20px; background:#2a2a4a; border:none; border-radius:30px; color:#fff; font-size:14px; cursor:pointer; transition:0.2s; }
+        .copy-btn:active { transform:scale(0.95); }
+        .footer { text-align:center; margin-top:18px; font-size:11px; color:#444; }
+        .toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#1a1a2e; color:#ffd700; padding:12px 28px; border-radius:40px; border:1px solid rgba(255,215,0,0.3); font-size:14px; opacity:0; transition:opacity 0.4s; pointer-events:none; }
+        .toast.show { opacity:1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 FAKE BILL</h1>
+        <div class="sub">Tạo hóa đơn chuyển tiền giả (demo)</div>
+
+        <label>🏛️ Ngân hàng / Ví</label>
+        <select id="bank">
+            <option value="Vietcombank">Vietcombank</option>
+            <option value="Techcombank">Techcombank</option>
+            <option value="BIDV">BIDV</option>
+            <option value="Zalopay">Zalopay</option>
+            <option value="Momo">Momo</option>
+            <option value="VietinBank">VietinBank</option>
+            <option value="ACB">ACB</option>
+        </select>
+
+        <label>👤 Tên người gửi</label>
+        <input type="text" id="sender" value="Nguyễn Văn A">
+
+        <label>🔢 Số TK gửi</label>
+        <input type="text" id="senderAcc" value="1234567890">
+
+        <label>👤 Tên người nhận</label>
+        <input type="text" id="receiver" value="Trần Thị B">
+
+        <label>🔢 Số TK nhận</label>
+        <input type="text" id="receiverAcc" value="0987654321">
+
+        <div class="row">
+            <div>
+                <label>💰 Số tiền (VNĐ)</label>
+                <input type="number" id="amount" value="500000">
+            </div>
+            <div>
+                <label>📝 Nội dung</label>
+                <input type="text" id="content" value="Chuyển tiền mua hàng">
+            </div>
+        </div>
+
+        <button id="genBtn">🔄 Tạo hóa đơn</button>
+
+        <div class="preview" id="preview">
+            <strong>Thông tin giao dịch</strong><br>
+            <span class="bank">Vietcombank</span><br>
+            <strong>Người gửi:</strong> Nguyễn Văn A (1234567890)<br>
+            <strong>Người nhận:</strong> Trần Thị B (0987654321)<br>
+            <strong>Số tiền:</strong> <span class="amount">500.000 VNĐ</span><br>
+            <strong>Nội dung:</strong> Chuyển tiền mua hàng<br>
+            <strong>Mã GD:</strong> <span class="ref" id="refCode">VCB-20260702-AB12</span><br>
+            <strong>Thời gian:</strong> <span id="timeNow">02/07/2026 15:30</span>
+        </div>
+
+        <button class="copy-btn" id="copyBtn">📋 Sao chép bill (text)</button>
+        <div class="footer">* Chỉ dùng cho mục đích thử nghiệm</div>
+    </div>
+
+    <div class="toast" id="toast">✅ Đã sao chép!</div>
+
+    <script>
+        (function() {
+            const bankSel = document.getElementById('bank');
+            const sender = document.getElementById('sender');
+            const senderAcc = document.getElementById('senderAcc');
+            const receiver = document.getElementById('receiver');
+            const receiverAcc = document.getElementById('receiverAcc');
+            const amount = document.getElementById('amount');
+            const content = document.getElementById('content');
+            const genBtn = document.getElementById('genBtn');
+            const preview = document.getElementById('preview');
+            const refCode = document.getElementById('refCode');
+            const timeNow = document.getElementById('timeNow');
+            const copyBtn = document.getElementById('copyBtn');
+            const toast = document.getElementById('toast');
+
+            function generateRef(bank) {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                let code = bank.substring(0,3).toUpperCase() + '-';
+                code += new Date().toISOString().slice(0,10).replace(/-/g,'') + '-';
+                for (let i=0; i<4; i++) code += chars.charAt(Math.floor(Math.random()*chars.length));
+                return code;
+            }
+
+            function formatNumber(num) {
+                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            }
+
+            function updatePreview() {
+                const bank = bankSel.value;
+                const sName = sender.value.trim() || 'Nguyễn Văn A';
+                const sAcc = senderAcc.value.trim() || '1234567890';
+                const rName = receiver.value.trim() || 'Trần Thị B';
+                const rAcc = receiverAcc.value.trim() || '0987654321';
+                const amt = parseInt(amount.value) || 0;
+                const cont = content.value.trim() || 'Chuyển tiền';
+                const ref = generateRef(bank);
+                const now = new Date();
+                const timeStr = now.toLocaleDateString('vi-VN') + ' ' + now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+
+                refCode.textContent = ref;
+                timeNow.textContent = timeStr;
+
+                preview.innerHTML = `
+                    <strong>Thông tin giao dịch</strong><br>
+                    <span class="bank">${bank}</span><br>
+                    <strong>Người gửi:</strong> ${sName} (${sAcc})<br>
+                    <strong>Người nhận:</strong> ${rName} (${rAcc})<br>
+                    <strong>Số tiền:</strong> <span class="amount">${formatNumber(amt)} VNĐ</span><br>
+                    <strong>Nội dung:</strong> ${cont}<br>
+                    <strong>Mã GD:</strong> <span class="ref">${ref}</span><br>
+                    <strong>Thời gian:</strong> ${timeStr}
+                `;
+            }
+
+            genBtn.addEventListener('click', updatePreview);
+
+            copyBtn.addEventListener('click', function() {
+                const text = preview.innerText || preview.textContent;
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(text).then(() => showToast('✅ Đã sao chép!'));
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                    showToast('✅ Đã sao chép!');
+                }
+            });
+
+            function showToast(msg) {
+                toast.textContent = msg;
+                toast.classList.add('show');
+                clearTimeout(toast._timer);
+                toast._timer = setTimeout(() => toast.classList.remove('show'), 2000);
+            }
+
+            updatePreview();
+        })();
+    </script>
+</body>
+              </html>
+              
